@@ -9,6 +9,25 @@ This guide helps AI agents work effectively in the Vicify (Spotify extension) co
 - `npm run dev` - Run in development mode with hot reload
 - `npm run build` - Build production bundle
 
+### Git Workflow
+
+#### Branch Naming Convention
+Use the following pattern for feature branches:
+```
+feat/<sensible-feature-name-spaces-must-be-replaced-with-dash-and-max-length-of-feat-name-3-5-word>
+```
+
+Examples:
+- `feat/pkce-auth`
+- `feat/add-playlist-support`
+- `feat/improve-error-handling`
+
+Rules:
+- Prefix with `feat/` for feature branches
+- Use lowercase and hyphens only
+- Keep the feature name 3-5 words
+- Make it descriptive and clear
+
 ### Testing
 No tests currently exist in this codebase. Add testing infrastructure before writing tests.
 
