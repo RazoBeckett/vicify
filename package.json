@@ -236,14 +236,6 @@
       "title": "Spotify Client ID",
       "description": "Your Spotify app's Client ID (create at developer.spotify.com)",
       "placeholder": "Enter your Client ID"
-    },
-    {
-      "name": "clientSecret",
-      "type": "password",
-      "required": true,
-      "title": "Spotify Client Secret",
-      "description": "Your Spotify app's Client Secret",
-      "placeholder": "Enter your Client Secret"
     }
   ],
   "scripts": {

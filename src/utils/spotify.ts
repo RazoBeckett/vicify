@@ -5,7 +5,6 @@ import * as http from 'http';
 
 interface Preferences {
   clientId: string;
-  clientSecret: string;
 }
 
 interface StoredToken {
@@ -64,18 +63,18 @@ function generatePKCE() {
 }
 
 /**
- * Start OAuth flow and get access token
+ * Start OAuth flow and get access token (PKCE - client ID only)
  */
-async function performOAuthFlow(clientId: string, clientSecret: string): Promise<StoredToken> {
-  console.log('[Vicify] Starting OAuth flow...');
-  
+async function performOAuthFlow(clientId: string): Promise<StoredToken> {
+  console.log('[Vicify] Starting OAuth flow with PKCE...');
+
   const state = generateRandomString(16);
   const { verifier, challenge } = generatePKCE();
-  
+
   // Store verifier for later use
   await LocalStorage.setItem('spotify_code_verifier', verifier);
   await LocalStorage.setItem('spotify_state', state);
-  
+
   // Build authorization URL
   const authUrl = new URL('https://accounts.spotify.com/authorize');
   authUrl.searchParams.append('client_id', clientId);
@@ -85,25 +84,25 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
   authUrl.searchParams.append('scope', SCOPES.join(' '));
   authUrl.searchParams.append('code_challenge_method', 'S256');
   authUrl.searchParams.append('code_challenge', challenge);
-  
+
   console.log('[Vicify] Authorization URL created');
-  
+
   // Return a promise that resolves when we get the callback
   return new Promise((resolve, reject) => {
     const server = http.createServer(async (req, res) => {
       console.log('[Vicify] Received callback:', req.url);
-      
+
       if (!req.url?.startsWith('/callback')) {
         res.writeHead(404);
         res.end('Not found');
         return;
       }
-      
+
       const url = new URL(req.url, `http://localhost:8888`);
       const code = url.searchParams.get('code');
       const returnedState = url.searchParams.get('state');
       const error = url.searchParams.get('error');
-      
+
       if (error) {
         console.error('[Vicify] OAuth error:', error);
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -112,9 +111,9 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
         reject(new Error(`OAuth error: ${error}`));
         return;
       }
-      
+
       const storedState = await LocalStorage.getItem<string>('spotify_state');
-      
+
       if (returnedState !== storedState) {
         console.error('[Vicify] State mismatch!');
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -123,7 +122,7 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
         reject(new Error('State mismatch'));
         return;
       }
-      
+
       if (!code) {
         console.error('[Vicify] No code received');
         res.writeHead(200, { 'Content-Type': 'text/html' });
@@ -132,12 +131,12 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
         reject(new Error('No authorization code'));
         return;
       }
-      
+
       try {
-        console.log('[Vicify] Exchanging code for token...');
+        console.log('[Vicify] Exchanging code for token using PKCE...');
         const storedVerifier = await LocalStorage.getItem<string>('spotify_code_verifier');
-        
-        // Exchange code for access token
+
+        // Exchange code for access token using PKCE (no client secret)
         const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
           method: 'POST',
           headers: {
@@ -148,30 +147,29 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
             code,
             redirect_uri: REDIRECT_URI,
             client_id: clientId,
-            client_secret: clientSecret,
             code_verifier: storedVerifier || '',
           }),
         });
-        
+
         if (!tokenResponse.ok) {
           const errorData = await tokenResponse.text();
           console.error('[Vicify] Token exchange failed:', errorData);
           throw new Error(`Token exchange failed: ${errorData}`);
         }
-        
+
         const tokenData: StoredToken = await tokenResponse.json();
         tokenData.expires_at = Date.now() + (tokenData.expires_in * 1000);
-        
+
         console.log('[Vicify] Token received successfully');
-        
+
         res.writeHead(200, { 'Content-Type': 'text/html' });
         res.end('<html><body><h1>Success!</h1><p>Authentication successful. You can close this window.</p></body></html>');
         server.close();
-        
+
         // Clean up stored state and verifier
         await LocalStorage.removeItem('spotify_state');
         await LocalStorage.removeItem('spotify_code_verifier');
-        
+
         resolve(tokenData);
       } catch (error) {
         console.error('[Vicify] Error during token exchange:', error);
@@ -181,17 +179,17 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
         reject(error);
       }
     });
-    
+
     server.listen(8888, () => {
       console.log('[Vicify] Local server started on port 8888');
       console.log('[Vicify] Opening browser for authentication...');
-      
+
       // Open browser for user to authenticate
       open(authUrl.toString()).catch(err => {
         console.error('[Vicify] Failed to open browser:', err);
       });
     });
-    
+
     // Timeout after 5 minutes
     setTimeout(() => {
       server.close();
@@ -201,11 +199,11 @@ async function performOAuthFlow(clientId: string, clientSecret: string): Promise
 }
 
 /**
- * Refresh the access token using the refresh token
+ * Refresh the access token using the refresh token (PKCE - client ID only)
  */
-async function refreshAccessToken(refreshToken: string, clientId: string, clientSecret: string): Promise<StoredToken> {
-  console.log('[Vicify] Refreshing token...');
-  
+async function refreshAccessToken(refreshToken: string, clientId: string): Promise<StoredToken> {
+  console.log('[Vicify] Refreshing token with PKCE...');
+
   const tokenResponse = await fetch('https://accounts.spotify.com/api/token', {
     method: 'POST',
     headers: {
@@ -215,25 +213,24 @@ async function refreshAccessToken(refreshToken: string, clientId: string, client
       grant_type: 'refresh_token',
       refresh_token: refreshToken,
       client_id: clientId,
-      client_secret: clientSecret,
     }),
   });
-  
+
   if (!tokenResponse.ok) {
     const errorData = await tokenResponse.text();
     console.error('[Vicify] Token refresh failed:', errorData);
     throw new Error(`Token refresh failed: ${errorData}`);
   }
-  
+
   const newToken: StoredToken = await tokenResponse.json();
-  
+
   // Spotify doesn't always return a new refresh token, so preserve the old one
   if (!newToken.refresh_token) {
     newToken.refresh_token = refreshToken;
   }
-  
+
   newToken.expires_at = Date.now() + (newToken.expires_in * 1000);
-  
+
   console.log('[Vicify] Token refreshed successfully');
   return newToken;
 }
@@ -243,27 +240,26 @@ async function refreshAccessToken(refreshToken: string, clientId: string, client
  */
 export async function getSpotifyClient(): Promise<SpotifyApi> {
   console.log('[Vicify] getSpotifyClient called');
-  
+
   const preferences = getPreferenceValues<Preferences>();
-  
+
   console.log('[Vicify] Client ID present:', !!preferences.clientId);
-  console.log('[Vicify] Client Secret present:', !!preferences.clientSecret);
-  
-  if (!preferences.clientId || !preferences.clientSecret) {
-    console.error('[Vicify] Missing credentials!');
+
+  if (!preferences.clientId) {
+    console.error('[Vicify] Missing Client ID!');
     await showToast({
       style: Toast.Style.Failure,
-      title: 'Missing Spotify Credentials',
-      message: 'Please add your Client ID and Client Secret in extension preferences',
+      title: 'Missing Spotify Client ID',
+      message: 'Please add your Client ID in extension preferences',
     });
-    throw new Error('Missing Spotify credentials');
+    throw new Error('Missing Spotify Client ID');
   }
 
   try {
     // Check for stored token
     const storedTokenJson = await LocalStorage.getItem<string>('spotify_token_data');
     let storedToken: StoredToken | null = null;
-    
+
     if (storedTokenJson) {
       try {
         storedToken = JSON.parse(storedTokenJson);
@@ -272,36 +268,35 @@ export async function getSpotifyClient(): Promise<SpotifyApi> {
         await LocalStorage.removeItem('spotify_token_data');
       }
     }
-    
+
     // Add 5-minute buffer before expiration to proactively refresh tokens
     const EXPIRY_BUFFER = 5 * 60 * 1000; // 5 minutes
     const now = Date.now();
-    
+
     // Check if we have a valid token that's not about to expire
     if (storedToken && storedToken.expires_at && storedToken.expires_at > (now + EXPIRY_BUFFER)) {
       console.log('[Vicify] Using stored token (valid for', Math.floor((storedToken.expires_at - now) / 60000), 'more minutes)');
-      
+
       // Reuse existing client if available, otherwise create new one
       if (!spotifyClient) {
         spotifyClient = SpotifyApi.withAccessToken(preferences.clientId, storedToken as AccessToken);
       }
       return spotifyClient;
     }
-    
+
     // Token is expired or about to expire - try to refresh it
     if (storedToken?.refresh_token) {
       try {
         const newToken = await refreshAccessToken(
           storedToken.refresh_token,
-          preferences.clientId,
-          preferences.clientSecret
+          preferences.clientId
         );
-        
+
         await LocalStorage.setItem('spotify_token_data', JSON.stringify(newToken));
-        
+
         console.log('[Vicify] Creating client with refreshed token');
         spotifyClient = SpotifyApi.withAccessToken(preferences.clientId, newToken as AccessToken);
-        
+
         return spotifyClient;
       } catch (error) {
         console.error('[Vicify] Token refresh failed, will need to re-authenticate:', error);
@@ -309,16 +304,16 @@ export async function getSpotifyClient(): Promise<SpotifyApi> {
         await LocalStorage.removeItem('spotify_token_data');
       }
     }
-    
+
     // No valid token or refresh failed - perform OAuth flow
-    console.log('[Vicify] Starting new OAuth flow...');
+    console.log('[Vicify] Starting new OAuth flow with PKCE...');
     await showToast({
       style: Toast.Style.Animated,
       title: 'Authenticating...',
       message: 'Opening browser for Spotify login',
     });
-    
-    const tokenData = await performOAuthFlow(preferences.clientId, preferences.clientSecret);
+
+    const tokenData = await performOAuthFlow(preferences.clientId);
     await LocalStorage.setItem('spotify_token_data', JSON.stringify(tokenData));
     
     console.log('[Vicify] OAuth complete, creating client');
