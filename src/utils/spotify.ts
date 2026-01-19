@@ -18,7 +18,7 @@ interface StoredToken {
 }
 
 let spotifyClient: SpotifyApi | null = null;
-const REDIRECT_URI = 'http://localhost:8888/callback';
+const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
 const SCOPES = [
   'user-read-playback-state',
   'user-modify-playback-state',

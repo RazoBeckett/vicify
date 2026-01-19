@@ -8,7 +8,7 @@
   "author": "RazoBeckett",
   "contributors": [],
   "pastContributors": [],
-  "icon": "extension_icon.png",
+  "icon": "extension_icon.svg",
   "commands": [
     {
       "name": "search",
