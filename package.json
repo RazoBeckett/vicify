@@ -3,7 +3,9 @@
   "name": "vicify",
   "title": "Vicify",
   "description": "Control Spotify playback, search music, manage playlists, and more",
-  "categories": ["Media"],
+  "categories": [
+    "Media"
+  ],
   "license": "MIT",
   "author": "RazoBeckett",
   "contributors": [],
@@ -16,6 +18,21 @@
       "subtitle": "Search Spotify",
       "description": "Search for tracks, artists, albums, and playlists",
       "mode": "view"
+    },
+    {
+      "name": "recommendations",
+      "title": "Recommendations",
+      "subtitle": "Discover music",
+      "description": "Get personalized track recommendations based on your listening history",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "seedTrack",
+          "type": "text",
+          "placeholder": "Seed track ID",
+          "required": false
+        }
+      ]
     },
     {
       "name": "next",
@@ -60,6 +77,21 @@
       "mode": "view"
     },
     {
+      "name": "follow-artists",
+      "title": "Follow Artists",
+      "subtitle": "Manage artists",
+      "description": "Follow or unfollow artists on Spotify",
+      "mode": "view",
+      "arguments": [
+        {
+          "name": "query",
+          "type": "text",
+          "placeholder": "Search artists",
+          "required": false
+        }
+      ]
+    },
+    {
       "name": "now-playing",
       "title": "Now Playing",
       "subtitle": "Current track details",
@@ -93,6 +125,13 @@
       "subtitle": "Copy Spotify URL",
       "description": "Copy the Spotify URL of the currently playing track",
       "mode": "no-view"
+    },
+    {
+      "name": "share-track",
+      "title": "Share Track",
+      "subtitle": "Share to social media",
+      "description": "Share currently playing track to social platforms",
+      "mode": "view"
     },
     {
       "name": "current-track",
