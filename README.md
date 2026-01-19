@@ -38,8 +38,8 @@ npm run build
    - user-top-read
    - user-read-email
    - user-read-private
-5. Copy your Client ID and Client Secret
-6. In Vicinae, configure the extension with your Spotify credentials
+5. Copy your Client ID (Client Secret is not required - we use PKCE authentication)
+6. In Vicinae, configure the extension with your Spotify Client ID only
 
 ## Features
 
