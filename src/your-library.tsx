@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
+import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, Keyboard } from '@vicinae/api';
 import { getSpotifyClient, handleSpotifyError, safeApiCall } from './utils/spotify';
 
 interface Track {
@@ -141,11 +141,31 @@ function PlaylistDetail({ playlist, onBack }: { playlist: any; onBack: () => voi
   );
 }
 
+const STORAGE_KEY = 'vicify-library-view-mode';
+
+function getViewMode(): 'list' | 'grid' {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return (stored === 'grid' || stored === 'list') ? stored : 'grid';
+  } catch {
+    return 'grid';
+  }
+}
+
+function setViewMode(mode: 'list' | 'grid') {
+  try {
+    localStorage.setItem(STORAGE_KEY, mode);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export default function MyPlaylists() {
   const [playlists, setPlaylists] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedPlaylist, setSelectedPlaylist] = useState<any | null>(null);
   const [searchText, setSearchText] = useState('');
+  const [viewMode, setViewModeState] = useState<'list' | 'grid'>(() => getViewMode());
 
   useEffect(() => {
     loadPlaylists();
@@ -176,6 +196,12 @@ export default function MyPlaylists() {
     } catch (error) {
       await handleSpotifyError(error, 'Failed to play playlist');
     }
+  }
+
+  function toggleViewMode() {
+    const newMode = viewMode === 'list' ? 'grid' : 'list';
+    setViewModeState(newMode);
+    setViewMode(newMode);
   }
 
   async function createNewPlaylist() {
@@ -209,17 +235,89 @@ export default function MyPlaylists() {
     return <PlaylistDetail playlist={selectedPlaylist} onBack={() => setSelectedPlaylist(null)} />;
   }
 
-  // Filter playlists based on search text
-  const filteredPlaylists = playlists.filter(playlist => 
+  const filteredPlaylists = playlists.filter(playlist =>
     playlist.name.toLowerCase().includes(searchText.toLowerCase())
   );
 
+  const viewToggleAccessory = (
+    <ActionPanel>
+      <Action
+        title={`Switch to ${viewMode === 'list' ? 'Grid' : 'List'} View`}
+        icon={viewMode === 'list' ? Icon.AppWindowGrid2x2 : Icon.AppWindowList}
+        shortcut={{ modifiers: ['cmd'], key: 'g' }}
+        onAction={toggleViewMode}
+      />
+    </ActionPanel>
+  );
+
+  if (viewMode === 'grid') {
+    return (
+      <Grid
+        isLoading={isLoading}
+        searchBarPlaceholder="Search playlists..."
+        searchText={searchText}
+        onSearchTextChange={setSearchText}
+        searchBarAccessory={viewToggleAccessory}
+        columns={4}
+        fit={Grid.Fit.Fill}
+      >
+        <Grid.Section title="My Playlists">
+          {filteredPlaylists.map((playlist) => (
+            <Grid.Item
+              key={playlist.id}
+              title={playlist.name}
+              subtitle={`${playlist.tracks?.total || 0} tracks`}
+              content={playlist.images?.[0]?.url || { source: Icon.Music, tintColor: '#1DB954' }}
+              actions={
+                <ActionPanel>
+                  <Action
+                    title="View Playlist"
+                    icon={Icon.Eye}
+                    onAction={() => handlePlaylistSelect(playlist)}
+                  />
+                  <Action
+                    title="Play Playlist"
+                    icon={Icon.Play}
+                    onAction={() => playPlaylist(playlist.uri, playlist.name)}
+                    shortcut={{ modifiers: ['cmd'], key: 'p' }}
+                  />
+                  <Action.OpenInBrowser
+                    title="Open in Spotify"
+                    url={playlist.external_urls?.spotify || ''}
+                  />
+                  <Action.CopyToClipboard
+                    title="Copy Playlist URI"
+                    content={playlist.uri}
+                    shortcut={{ modifiers: ['cmd'], key: 'c' }}
+                  />
+                  <Action
+                    title="Switch to List View"
+                    icon={Icon.AppWindowList}
+                    shortcut={{ modifiers: ['cmd'], key: 'g' }}
+                    onAction={toggleViewMode}
+                  />
+                  <Action
+                    title="Refresh"
+                    icon={Icon.ArrowClockwise}
+                    onAction={loadPlaylists}
+                    shortcut={{ modifiers: ['cmd'], key: 'r' }}
+                  />
+                </ActionPanel>
+              }
+            />
+          ))}
+        </Grid.Section>
+      </Grid>
+    );
+  }
+
   return (
-    <List 
-      isLoading={isLoading} 
+    <List
+      isLoading={isLoading}
       searchBarPlaceholder="Search playlists..."
       searchText={searchText}
       onSearchTextChange={setSearchText}
+      searchBarAccessory={viewToggleAccessory}
     >
       <List.Section title="My Playlists">
         {filteredPlaylists.map((playlist) => (
@@ -252,6 +350,12 @@ export default function MyPlaylists() {
                   title="Copy Playlist URI"
                   content={playlist.uri}
                   shortcut={{ modifiers: ['cmd'], key: 'c' }}
+                />
+                <Action
+                  title="Switch to Grid View"
+                  icon={Icon.AppWindowGrid2x2}
+                  shortcut={{ modifiers: ['cmd'], key: 'g' }}
+                  onAction={toggleViewMode}
                 />
                 <Action
                   title="Refresh"

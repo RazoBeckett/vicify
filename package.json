@@ -3,7 +3,9 @@
   "name": "vicify",
   "title": "Vicify",
   "description": "Control Spotify playback, search music, manage playlists, and more",
-  "categories": ["Media"],
+  "categories": [
+    "Media"
+  ],
   "license": "MIT",
   "author": "RazoBeckett",
   "contributors": [],
@@ -244,11 +246,11 @@
   },
   "dependencies": {
     "@spotify/web-api-ts-sdk": "^1.2.0",
-    "@types/react": "^19.2.2",
-    "@vicinae/api": "^0.16.0",
-    "react": "^19.2.0"
+    "@types/react": "^19.2.8",
+    "@vicinae/api": "^0.16.14",
+    "react": "^19.2.3"
   },
   "devDependencies": {
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.3"
   }
 }
