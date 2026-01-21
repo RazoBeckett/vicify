@@ -56,3 +56,7 @@ npm run build
 ## Device Persistence
 
 The extension automatically remembers your last selected Spotify Connect device. When you open the extension, it will automatically switch to your previously used device. If the device is not found, it will retry once after 3.5 seconds.
+
+---
+
+Spotify is a trademark of Spotify AB. This project is not affiliated with or endorsed by Spotify.
