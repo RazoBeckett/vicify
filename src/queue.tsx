@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, safeApiCall } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, requireActiveDevice, safeApiCall } from './utils/spotify';
 import type { Track } from './types/spotify';
 
 export default function ViewQueue() {
@@ -28,10 +28,12 @@ export default function ViewQueue() {
     }
   }
 
-   async function playTrack(uri: string) {
-     try {
-       const spotify = await getSpotifyClient();
-       await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
+  async function playTrack(uri: string) {
+    try {
+      const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
+      await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
       await showToast({
         style: Toast.Style.Success,
         title: 'Playing Track',
@@ -42,10 +44,12 @@ export default function ViewQueue() {
     }
   }
 
-   async function skipToNext() {
-     try {
-       const spotify = await getSpotifyClient();
-       await safeApiCall(() => spotify.player.skipToNext(undefined as any));
+  async function skipToNext() {
+    try {
+      const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
+      await safeApiCall(() => spotify.player.skipToNext(undefined as any));
       await showToast({
         style: Toast.Style.Success,
         title: 'Skipped to Next',

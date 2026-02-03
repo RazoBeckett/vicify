@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { Detail, ActionPanel, Action, Icon } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, safeApiCall } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, requireActiveDevice, safeApiCall } from './utils/spotify';
 
 export default function CurrentlyPlaying() {
   const [track, setTrack] = useState<any>(null);
@@ -39,6 +39,8 @@ export default function CurrentlyPlaying() {
   async function togglePlayPause() {
     try {
       const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
       
       if (isPlaying) {
         await safeApiCall(() => spotify.player.pausePlayback(undefined as any));

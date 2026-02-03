@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, Keyboard } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, safeApiCall, formatDuration } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, safeApiCall, formatDuration, requireActiveDevice } from './utils/spotify';
 import type { Playlist, Track } from './types/spotify';
 
 interface PlaylistTrack {
@@ -31,6 +31,8 @@ function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () =
    async function playTrack(uri: string, trackName: string, trackIndex: number) {
      try {
        const spotify = await getSpotifyClient();
+       const playbackState = await requireActiveDevice(spotify);
+       if (!playbackState) return;
        await safeApiCall(() => spotify.player.startResumePlayback(
          undefined as any,
         playlist.uri, 
@@ -50,6 +52,8 @@ function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () =
    async function playPlaylist() {
      try {
        const spotify = await getSpotifyClient();
+       const playbackState = await requireActiveDevice(spotify);
+       if (!playbackState) return;
        await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, playlist.uri));
       await showToast({
         style: Toast.Style.Success,
@@ -64,6 +68,8 @@ function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () =
   async function addToQueue(uri: string, trackName: string) {
     try {
       const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
       await safeApiCall(() => spotify.player.addItemToPlaybackQueue(uri));
       await showToast({
         style: Toast.Style.Success,
@@ -176,6 +182,8 @@ export default function MyPlaylists() {
   async function playPlaylist(uri: string, name: string) {
     try {
       const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
       await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, uri));
       await showToast({
         style: Toast.Style.Success,

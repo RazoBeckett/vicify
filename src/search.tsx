@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, safeApiCall } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, requireActiveDevice, safeApiCall } from './utils/spotify';
 import type { Track, Artist, Album, Playlist } from './types/spotify';
 
 type SearchResult = Track | Artist | Album | Playlist;
@@ -47,10 +47,12 @@ export default function SearchSpotify() {
     }
   }
 
-   async function playTrack(uri: string) {
-     try {
-       const spotify = await getSpotifyClient();
-       await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
+  async function playTrack(uri: string) {
+    try {
+      const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
+      await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
       await showToast({
         style: Toast.Style.Success,
         title: 'Playing Track',
@@ -63,6 +65,8 @@ export default function SearchSpotify() {
   async function addToQueue(uri: string, name: string) {
     try {
       const spotify = await getSpotifyClient();
+      const playbackState = await requireActiveDevice(spotify);
+      if (!playbackState) return;
       await safeApiCall(() => spotify.player.addItemToPlaybackQueue(uri));
       await showToast({
         style: Toast.Style.Success,

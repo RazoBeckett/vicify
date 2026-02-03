@@ -1,9 +1,11 @@
 import { showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, safeApiCall } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, requireActiveDevice, safeApiCall } from './utils/spotify';
 
 export default async function Command() {
   try {
     const spotify = await getSpotifyClient();
+    const playbackState = await requireActiveDevice(spotify);
+    if (!playbackState) return;
     const currentTrack = await spotify.player.getCurrentlyPlayingTrack();
     
     if (!currentTrack || !currentTrack.item) {

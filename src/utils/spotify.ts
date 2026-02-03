@@ -1,4 +1,5 @@
 import { SpotifyApi, AccessToken } from '@spotify/web-api-ts-sdk';
+import type { PlaybackState as SpotifyPlaybackState } from '@spotify/web-api-ts-sdk';
 import { getPreferenceValues, LocalStorage, showToast, Toast, open } from '@vicinae/api';
 import * as crypto from 'crypto';
 import * as http from 'http';
@@ -458,17 +459,39 @@ export async function clearToken(): Promise<void> {
  * @param error - The error object to handle
  * @param defaultMessage - Default message if error cannot be parsed
  */
-export async function handleSpotifyError(error: unknown, defaultMessage: string): Promise<void> {
-  console.error('[Vicify] Spotify Error:', error);
-  console.error('[Vicify] Error type:', typeof error);
-  console.error('[Vicify] Error details:', JSON.stringify(error, null, 2));
-  
-  let message = defaultMessage;
-  
+const NO_DEVICE_TITLE = 'No Device Connected';
+const NO_DEVICE_MESSAGE = 'Please open Spotify on a device first';
+
+function isNoActiveDeviceError(error: unknown): boolean {
   if (error instanceof Error) {
-    message = error.message;
-    console.error('[Vicify] Error message:', message);
-    console.error('[Vicify] Error stack:', error.stack);
+    const msg = error.message.toLowerCase();
+    return msg.includes('no_active_device') || msg.includes('no active device');
+  }
+  if (typeof error === 'string') {
+    return error.toLowerCase().includes('no active device');
+  }
+  return false;
+}
+
+export async function handleSpotifyError(error: unknown, defaultMessage: string): Promise<void> {
+  if (isNoActiveDeviceError(error)) {
+    console.log('[Vicify] No active device found');
+    await showToast({
+      style: Toast.Style.Failure,
+      title: NO_DEVICE_TITLE,
+      message: NO_DEVICE_MESSAGE,
+    });
+    return;
+  }
+
+  const message = error instanceof Error && error.message ? error.message : defaultMessage;
+
+  console.error('[Vicify] Spotify Error:', error);
+  if (error instanceof Error) {
+    console.error('[Vicify] Error message:', error.message);
+    if (error.stack) {
+      console.error('[Vicify] Error stack:', error.stack);
+    }
   }
 
   await showToast({
@@ -476,6 +499,21 @@ export async function handleSpotifyError(error: unknown, defaultMessage: string)
     title: 'Spotify Error',
     message,
   });
+}
+
+export async function requireActiveDevice(spotify: SpotifyApi): Promise<SpotifyPlaybackState | null> {
+  const playbackState = await spotify.player.getPlaybackState();
+
+  if (!playbackState || !playbackState.device) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: 'No Active Device',
+      message: NO_DEVICE_MESSAGE,
+    });
+    return null;
+  }
+
+  return playbackState;
 }
 
 /**
