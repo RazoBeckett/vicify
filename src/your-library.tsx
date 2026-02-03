@@ -137,11 +137,15 @@ function getViewMode(): 'list' | 'grid' {
   }
 }
 
-function setViewMode(mode: 'list' | 'grid') {
+async function setViewMode(mode: 'list' | 'grid') {
   try {
     localStorage.setItem(STORAGE_KEY, mode);
-  } catch {
-    // Ignore storage errors
+  } catch (error) {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: 'Could not save preference',
+      message: 'Failed to save view mode preference',
+    });
   }
 }
 
@@ -183,10 +187,10 @@ export default function MyPlaylists() {
     }
   }
 
-  function toggleViewMode() {
+  async function toggleViewMode() {
     const newMode = viewMode === 'list' ? 'grid' : 'list';
     setViewModeState(newMode);
-    setViewMode(newMode);
+    await setViewMode(newMode);
   }
 
   async function createNewPlaylist() {
