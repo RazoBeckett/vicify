@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
 import { getSpotifyClient, handleSpotifyError, formatArtists, safeApiCall } from './utils/spotify';
+import type { Track, Artist, Album, Playlist } from './types/spotify';
+
+type SearchResult = Track | Artist | Album | Playlist;
 
 export default function SearchSpotify() {
   const [searchText, setSearchText] = useState('');
@@ -44,10 +47,10 @@ export default function SearchSpotify() {
     }
   }
 
-  async function playTrack(uri: string) {
-    try {
-      const spotify = await getSpotifyClient();
-      await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
+   async function playTrack(uri: string) {
+     try {
+       const spotify = await getSpotifyClient();
+       await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
       await showToast({
         style: Toast.Style.Success,
         title: 'Playing Track',
@@ -71,26 +74,32 @@ export default function SearchSpotify() {
     }
   }
 
-  function getItemTitle(item: any): string {
-    return item.name || 'Unknown';
+  function getItemTitle(item: SearchResult): string {
+    return 'name' in item ? item.name : 'Unknown';
   }
 
-  function getItemSubtitle(item: any): string {
+  function getItemSubtitle(item: SearchResult): string {
     if (searchType === 'track' || searchType === 'album') {
-      return formatArtists(item.artists || []);
+      const hasArtists = 'artists' in item && Array.isArray(item.artists);
+      return hasArtists ? formatArtists(item.artists as Artist[]) : '';
     }
     if (searchType === 'playlist') {
-      return `${item.tracks?.total || 0} tracks`;
+      const hasTracks = 'tracks' in item && item.tracks !== null;
+      return hasTracks ? `${(item.tracks as any).total} tracks` : '0 tracks';
     }
     if (searchType === 'artist') {
-      return `${item.followers?.total || 0} followers`;
+      const hasFollowers = 'followers' in item;
+      return hasFollowers ? `${(item.followers as any).total} followers` : '';
     }
     return '';
   }
 
-  function getItemIcon(item: any): string {
-    const images = item.images || item.album?.images || [];
-    return images[0]?.url || Icon.Music;
+  function getItemIcon(item: SearchResult): string {
+    // Images can be on the item directly (Album, Playlist, Artist in SDK) or nested (Track)
+    const directImages = 'images' in item ? item.images : undefined;
+    const albumImages = 'album' in item && item.album && 'images' in item.album ? item.album.images : undefined;
+    const images = directImages || albumImages || [];
+    return (images as any)[0]?.url || Icon.Music;
   }
 
   return (
@@ -102,12 +111,12 @@ export default function SearchSpotify() {
       }}
       searchBarPlaceholder={`Search ${searchType}s...`}
       searchBarAccessory={
-        <List.Dropdown
-          tooltip="Search Type"
-          onChange={(newValue) => {
-            setSearchType(newValue as any);
-            performSearch(searchText);
-          }}
+         <List.Dropdown
+           tooltip="Search Type"
+           onChange={(newValue) => {
+             setSearchType(newValue as any);
+             performSearch(searchText);
+           }}
         >
           <List.Dropdown.Item title="Tracks" value="track" />
           <List.Dropdown.Item title="Artists" value="artist" />

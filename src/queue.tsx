@@ -1,24 +1,26 @@
 import { useState, useEffect } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
 import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, safeApiCall } from './utils/spotify';
+import type { Track } from './types/spotify';
 
 export default function ViewQueue() {
   const [queue, setQueue] = useState<any[]>([]);
-  const [currentTrack, setCurrentTrack] = useState<any>(null);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadQueue();
   }, []);
 
-  async function loadQueue() {
-    try {
-      setIsLoading(true);
-      const spotify = await getSpotifyClient();
-      const queueData = await spotify.player.getUsersQueue();
-      
-      setCurrentTrack(queueData.currently_playing);
-      setQueue(queueData.queue || []);
+   async function loadQueue() {
+     try {
+       setIsLoading(true);
+       const spotify = await getSpotifyClient();
+       const queueData = await spotify.player.getUsersQueue();
+       
+       // @ts-expect-error SDK returns Track | Episode, we handle both as unknown
+       setCurrentTrack(queueData.currently_playing);
+       setQueue(queueData.queue || []);
     } catch (error) {
       await handleSpotifyError(error, 'Failed to load queue');
     } finally {
@@ -26,10 +28,10 @@ export default function ViewQueue() {
     }
   }
 
-  async function playTrack(uri: string) {
-    try {
-      const spotify = await getSpotifyClient();
-      await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
+   async function playTrack(uri: string) {
+     try {
+       const spotify = await getSpotifyClient();
+       await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
       await showToast({
         style: Toast.Style.Success,
         title: 'Playing Track',
@@ -40,10 +42,10 @@ export default function ViewQueue() {
     }
   }
 
-  async function skipToNext() {
-    try {
-      const spotify = await getSpotifyClient();
-      await safeApiCall(() => spotify.player.skipToNext(undefined as any));
+   async function skipToNext() {
+     try {
+       const spotify = await getSpotifyClient();
+       await safeApiCall(() => spotify.player.skipToNext(undefined as any));
       await showToast({
         style: Toast.Style.Success,
         title: 'Skipped to Next',

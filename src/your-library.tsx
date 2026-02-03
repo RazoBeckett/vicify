@@ -1,14 +1,10 @@
 import { useState, useEffect } from 'react';
 import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, Keyboard } from '@vicinae/api';
 import { getSpotifyClient, handleSpotifyError, safeApiCall } from './utils/spotify';
+import type { Playlist, Track } from './types/spotify';
 
-interface Track {
-  id: string;
-  name: string;
-  artists: { name: string }[];
-  album: { name: string; images: { url: string }[] };
-  uri: string;
-  duration_ms: number;
+interface PlaylistTrack {
+  track: Track;
 }
 
 interface PlaylistTrack {
@@ -21,7 +17,7 @@ function formatDuration(ms: number): string {
   return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
-function PlaylistDetail({ playlist, onBack }: { playlist: any; onBack: () => void }) {
+function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () => void }) {
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -42,12 +38,11 @@ function PlaylistDetail({ playlist, onBack }: { playlist: any; onBack: () => voi
     }
   }
 
-  async function playTrack(uri: string, trackName: string, trackIndex: number) {
-    try {
-      const spotify = await getSpotifyClient();
-      // Play the track from the playlist context with offset
-      await safeApiCall(() => spotify.player.startResumePlayback(
-        undefined as any, 
+   async function playTrack(uri: string, trackName: string, trackIndex: number) {
+     try {
+       const spotify = await getSpotifyClient();
+       await safeApiCall(() => spotify.player.startResumePlayback(
+         undefined as any,
         playlist.uri, 
         undefined,
         { position: trackIndex }
@@ -62,10 +57,10 @@ function PlaylistDetail({ playlist, onBack }: { playlist: any; onBack: () => voi
     }
   }
 
-  async function playPlaylist() {
-    try {
-      const spotify = await getSpotifyClient();
-      await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, playlist.uri));
+   async function playPlaylist() {
+     try {
+       const spotify = await getSpotifyClient();
+       await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, playlist.uri));
       await showToast({
         style: Toast.Style.Success,
         title: 'Playing Playlist',
@@ -161,9 +156,9 @@ function setViewMode(mode: 'list' | 'grid') {
 }
 
 export default function MyPlaylists() {
-  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<any | null>(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
   const [searchText, setSearchText] = useState('');
   const [viewMode, setViewModeState] = useState<'list' | 'grid'>(() => getViewMode());
 
@@ -171,12 +166,12 @@ export default function MyPlaylists() {
     loadPlaylists();
   }, []);
 
-  async function loadPlaylists() {
-    try {
-      setIsLoading(true);
-      const spotify = await getSpotifyClient();
-      const result = await spotify.currentUser.playlists.playlists(50);
-      setPlaylists(result.items);
+   async function loadPlaylists() {
+     try {
+       setIsLoading(true);
+       const spotify = await getSpotifyClient();
+       const result = await spotify.currentUser.playlists.playlists(50);
+       setPlaylists(result.items);
     } catch (error) {
       await handleSpotifyError(error, 'Failed to load playlists');
     } finally {
@@ -226,7 +221,7 @@ export default function MyPlaylists() {
     }
   }
 
-  function handlePlaylistSelect(playlist: any) {
+  function handlePlaylistSelect(playlist: Playlist) {
     setSearchText('');
     setSelectedPlaylist(playlist);
   }
