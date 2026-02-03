@@ -1,16 +1,5 @@
-import { showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, safeApiCall } from './utils/spotify';
+import { setVolumePreset } from './volume-preset';
 
 export default async function Command() {
-  try {
-    const spotify = await getSpotifyClient();
-    await safeApiCall(() => spotify.player.setPlaybackVolume(0, undefined as any));
-    
-    await showToast({
-      style: Toast.Style.Success,
-      title: 'Volume Set to 0%',
-    });
-  } catch (error) {
-    await handleSpotifyError(error, 'Failed to set volume');
-  }
+  await setVolumePreset(0);
 }
