@@ -1,20 +1,10 @@
 import { useState, useEffect } from 'react';
 import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, Keyboard } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, safeApiCall } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, safeApiCall, formatDuration } from './utils/spotify';
 import type { Playlist, Track } from './types/spotify';
 
 interface PlaylistTrack {
   track: Track;
-}
-
-interface PlaylistTrack {
-  track: Track;
-}
-
-function formatDuration(ms: number): string {
-  const minutes = Math.floor(ms / 60000);
-  const seconds = Math.floor((ms % 60000) / 1000);
-  return `${minutes}:${seconds.toString().padStart(2, '0')}`;
 }
 
 function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () => void }) {
