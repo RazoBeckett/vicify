@@ -143,10 +143,10 @@ export default function Devices() {
       return false;
     }
 
-       try {
-         const spotify = await getSpotifyClient();
-         // @ts-expect-error SDK requires string ID but device.id can be null; we filter those in UI
-         await safeApiCall(() => spotify.player.transferPlayback([device.id], true));
+        try {
+          const spotify = await getSpotifyClient();
+          // @ts-expect-error SDK requires string ID but device.id can be null; we filter those in UI
+          await safeApiCall(() => spotify.player.transferPlayback([device.id], false));
 
       console.log('[Vicify] Auto-selected device:', lastDeviceName);
 
