@@ -2,6 +2,7 @@ import { SpotifyApi, AccessToken } from '@spotify/web-api-ts-sdk';
 import { getPreferenceValues, LocalStorage, showToast, Toast, open } from '@vicinae/api';
 import * as crypto from 'crypto';
 import * as http from 'http';
+import type { PlaybackState, Track, Device } from '../types/spotify';
 
 interface Preferences {
   clientId: string;
@@ -334,7 +335,83 @@ export async function getSpotifyClient(): Promise<SpotifyApi> {
 }
 
 /**
+ * Validate and return typed playback state or null if invalid
+ * @param playback - Unknown value to validate as PlaybackState
+ * @returns Validated PlaybackState object or null if validation fails
+ */
+export function validatePlayback(playback: unknown): PlaybackState | null {
+  if (!playback || typeof playback !== 'object') {
+    return null;
+  }
+
+  const state = playback as Record<string, unknown>;
+  
+  if (
+    typeof state.is_playing !== 'boolean' ||
+    typeof state.repeat_state !== 'string' ||
+    typeof state.shuffle_state !== 'boolean'
+  ) {
+    return null;
+  }
+
+  return playback as PlaybackState;
+}
+
+/**
+ * Validate and return typed track or null if invalid
+ * @param item - Unknown value to validate as Track
+ * @returns Validated Track object or null if validation fails
+ */
+export function validateTrack(item: unknown): Track | null {
+  if (!item || typeof item !== 'object') {
+    return null;
+  }
+
+  const track = item as Record<string, unknown>;
+  
+  if (
+    typeof track.id !== 'string' ||
+    typeof track.name !== 'string' ||
+    typeof track.uri !== 'string' ||
+    !Array.isArray(track.artists) ||
+    typeof track.duration_ms !== 'number' ||
+    !track.album || typeof track.album !== 'object'
+  ) {
+    return null;
+  }
+
+  return item as Track;
+}
+
+/**
+ * Validate and return typed device or null if invalid
+ * @param device - Unknown value to validate as Device
+ * @returns Validated Device object or null if validation fails
+ */
+export function validateDevice(device: unknown): Device | null {
+  if (!device || typeof device !== 'object') {
+    return null;
+  }
+
+  const dev = device as Record<string, unknown>;
+  
+  if (
+    typeof dev.id !== 'string' ||
+    typeof dev.name !== 'string' ||
+    typeof dev.type !== 'string' ||
+    typeof dev.is_active !== 'boolean' ||
+    (dev.volume_percent !== null && typeof dev.volume_percent !== 'number')
+  ) {
+    return null;
+  }
+
+  return device as Device;
+}
+
+/**
  * Format milliseconds to MM:SS format
+ * @param ms - Duration in milliseconds
+ * @returns Formatted duration string (e.g., "3:45")
  */
 export function formatDuration(ms: number): string {
   const minutes = Math.floor(ms / 60000);
@@ -343,14 +420,17 @@ export function formatDuration(ms: number): string {
 }
 
 /**
- * Format artist names from array
+ * Format artist names from array into comma-separated string
+ * @param artists - Array of artist objects with name property
+ * @returns Comma-separated artist names
  */
 export function formatArtists(artists: Array<{ name: string }>): string {
   return artists.map(artist => artist.name).join(', ');
 }
 
 /**
- * Get cached access token
+ * Retrieve cached access token from storage
+ * @returns Cached access token string or null if not found
  */
 export async function getCachedToken(): Promise<string | null> {
   const token = await LocalStorage.getItem<string>('spotify_access_token');
@@ -358,22 +438,25 @@ export async function getCachedToken(): Promise<string | null> {
 }
 
 /**
- * Cache access token
+ * Store access token in local storage
+ * @param token - The access token to cache
  */
 export async function cacheToken(token: string): Promise<void> {
-  await LocalStorage.setItem('spotify_access_token', token);
+   await LocalStorage.setItem('spotify_access_token', token);
 }
 
 /**
- * Clear cached token
+ * Remove cached token and reset Spotify client instance
  */
 export async function clearToken(): Promise<void> {
-  await LocalStorage.removeItem('spotify_access_token');
-  spotifyClient = null;
+   await LocalStorage.removeItem('spotify_access_token');
+   spotifyClient = null;
 }
 
 /**
- * Handle Spotify API errors
+ * Display a formatted error toast notification for Spotify API errors
+ * @param error - The error object to handle
+ * @param defaultMessage - Default message if error cannot be parsed
  */
 export async function handleSpotifyError(error: unknown, defaultMessage: string): Promise<void> {
   console.error('[Vicify] Spotify Error:', error);
@@ -396,8 +479,10 @@ export async function handleSpotifyError(error: unknown, defaultMessage: string)
 }
 
 /**
- * Safe wrapper for Spotify API calls that may return 204 No Content
+ * Execute a Spotify API call with safe error handling for 204 No Content responses
  * The SDK has a bug where it tries to parse empty responses as JSON
+ * @param apiCall - Function that returns a promise from the Spotify SDK
+ * @returns The API response or void if it was a 204 No Content response
  */
 export async function safeApiCall<T>(apiCall: () => Promise<T>): Promise<T | void> {
   try {
