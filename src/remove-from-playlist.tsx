@@ -43,7 +43,9 @@ export default function RemoveFromPlaylist() {
       await getSpotifyClient();
       await spotifyFetch(
         'DELETE',
-        `/playlists/${encodeURIComponent(playlistId)}/items?uris=${encodeURIComponent(currentTrack.uri)}`
+        `/playlists/${encodeURIComponent(playlistId)}/items`,
+        // February 2026 renamed the body field `tracks` -> `items`
+        { items: [{ uri: currentTrack.uri }] }
       );
       
       await showToast({
