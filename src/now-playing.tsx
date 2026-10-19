@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { Detail, ActionPanel, Action, Icon } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, requireActiveDevice, safeApiCall } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, formatPopularity, requireActiveDevice, safeApiCall, validateTrack, validateDevice } from './utils/spotify';
+import type { Track, Device } from './types/spotify';
 
 export default function CurrentlyPlaying() {
-  const [track, setTrack] = useState<any>(null);
+  const [track, setTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [progress, setProgress] = useState(0);
-  const [device, setDevice] = useState<any>(null);
+  const [device, setDevice] = useState<Device | null>(null);
 
   useEffect(() => {
     loadCurrentTrack();
@@ -24,10 +25,11 @@ export default function CurrentlyPlaying() {
       const playback = await spotify.player.getCurrentlyPlayingTrack();
       
       if (playback && playback.item) {
-        setTrack(playback.item);
+        // Playback can return a podcast episode, which has no artists/album
+        setTrack(validateTrack(playback.item));
         setIsPlaying(playback.is_playing);
         setProgress(playback.progress_ms || 0);
-        setDevice(playback.device);
+        setDevice(validateDevice(playback.device));
       } else {
         setTrack(null);
       }
@@ -91,7 +93,7 @@ export default function CurrentlyPlaying() {
 
 **Status:** ${isPlaying ? '▶️ Playing' : '⏸️ Paused'}
 
-**Popularity:** ${'⭐'.repeat(Math.round(track.popularity / 20))} (${track.popularity}/100)
+${formatPopularity(track.popularity)}
 `;
 
   return (
@@ -117,9 +119,9 @@ export default function CurrentlyPlaying() {
             title="Status" 
             text={isPlaying ? 'Playing' : 'Paused'} 
           />
-          <Detail.Metadata.Label 
-            title="Popularity" 
-            text={`${track.popularity}/100`} 
+          <Detail.Metadata.Label
+            title="Popularity"
+            text={track.popularity === undefined ? 'Unavailable' : `${track.popularity}/100`} 
           />
         </Detail.Metadata>
       }

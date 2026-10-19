@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { Detail, ActionPanel, Action, Icon } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, formatDuration, validateTrack, validatePlayback } from './utils/spotify';
+import type { Track, PlaybackState } from './types/spotify';
 
 export default function CurrentTrack() {
-  const [track, setTrack] = useState<any>(null);
+  const [track, setTrack] = useState<Track | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playback, setPlayback] = useState<any>(null);
+  const [playback, setPlayback] = useState<PlaybackState | null>(null);
 
   useEffect(() => {
     loadCurrentTrack();
@@ -17,9 +18,10 @@ export default function CurrentTrack() {
       const currentPlayback = await spotify.player.getCurrentlyPlayingTrack();
       
       if (currentPlayback && currentPlayback.item) {
-        setTrack(currentPlayback.item);
+        // Playback can return a podcast episode, which has no artists/album
+        setTrack(validateTrack(currentPlayback.item));
         setIsPlaying(currentPlayback.is_playing);
-        setPlayback(currentPlayback);
+        setPlayback(validatePlayback(currentPlayback));
       } else {
         setTrack(null);
         setPlayback(null);
@@ -51,8 +53,13 @@ export default function CurrentTrack() {
   const albumName = track.album?.name || 'Unknown Album';
   const trackDuration = formatDuration(track.duration_ms);
   const releaseDate = track.album?.release_date ? new Date(track.album.release_date).getFullYear() : 'Unknown';
-  const popularity = track.popularity || 0;
   const explicit = track.explicit ? '🅴' : '';
+
+  // February 2026 removed `popularity` from Track responses
+  const popularity =
+    typeof track.popularity === 'number'
+      ? `${'⭐'.repeat(Math.floor(track.popularity / 20))} ${track.popularity}/100`
+      : 'Not available';
   
   // Calculate progress if available
   let progressBar = '';
@@ -82,7 +89,7 @@ export default function CurrentTrack() {
 | **Album** | ${albumName} |
 | **Duration** | ${trackDuration} |
 | **Release Year** | ${releaseDate} |
-| **Popularity** | ${'⭐'.repeat(Math.floor(popularity / 20))} ${popularity}/100 |
+| **Popularity** | ${popularity} |
 | **Type** | ${track.type} |
 
 ${progressBar ? `\n---\n\n### Playback Progress\n\n\`${progressBar}\`\n\n${progressText}\n` : ''}
@@ -115,8 +122,8 @@ ${track.album?.external_urls?.spotify ? `\n[Open Album in Spotify](${track.album
           <Detail.Metadata.Label title="Album" text={albumName} />
           <Detail.Metadata.Separator />
           <Detail.Metadata.Label title="Duration" text={trackDuration} />
-          <Detail.Metadata.Label title="Popularity" text={`${popularity}/100`} />
-          {track.explicit && <Detail.Metadata.Label title="Explicit" text="Yes" icon={Icon.ExclamationMark} />}
+          <Detail.Metadata.Label title="Popularity" text={popularity} />
+          {track.explicit && <Detail.Metadata.Label title="Explicit" text="Yes" icon={Icon.Exclamationmark} />}
           <Detail.Metadata.Separator />
           {playback?.device && (
             <>

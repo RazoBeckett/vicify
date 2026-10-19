@@ -1,11 +1,11 @@
 import { showToast, Toast, LaunchProps } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, safeApiCall } from './utils/spotify';
+import { handleSpotifyError, setVolume } from './utils/spotify';
 
 interface Arguments {
   volume: string;
 }
 
-export default async function Command(props: LaunchProps<{ arguments: Arguments }>) {
+export default async function Command(props: LaunchProps<{ arguments: Arguments }>): Promise<void> {
   const volumeInput = props.arguments.volume;
   const volume = parseInt(volumeInput, 10);
 
@@ -28,8 +28,8 @@ export default async function Command(props: LaunchProps<{ arguments: Arguments 
   }
 
   try {
-    const spotify = await getSpotifyClient();
-    await safeApiCall(() => spotify.player.setPlaybackVolume(volume, undefined as any));
+    const applied = await setVolume(volume);
+    if (!applied) return;
 
     await showToast({
       style: Toast.Style.Success,

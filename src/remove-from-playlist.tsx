@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, spotifyFetch, getCurrentTrack } from './utils/spotify';
+import type { Playlist, Track } from './types/spotify';
 
 export default function RemoveFromPlaylist() {
-  const [playlists, setPlaylists] = useState<any[]>([]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [currentTrack, setCurrentTrack] = useState<any>(null);
+  const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
 
   useEffect(() => {
     loadData();
@@ -15,20 +16,15 @@ export default function RemoveFromPlaylist() {
     try {
       setIsLoading(true);
       const spotify = await getSpotifyClient();
-      
-      // Get current track
-      const playback = await spotify.player.getCurrentlyPlayingTrack();
-      if (!playback || !playback.item) {
-        await showToast({
-          style: Toast.Style.Failure,
-          title: 'No Track Playing',
-          message: 'Please start playing a track first',
-        });
+
+      // getCurrentTrack already surfaces a toast when nothing is playing
+      const track = await getCurrentTrack();
+      if (!track) {
         setIsLoading(false);
         return;
       }
-      setCurrentTrack(playback.item);
-      
+      setCurrentTrack(track);
+
       // Get user's playlists
       const userPlaylists = await spotify.currentUser.playlists.playlists(50);
       setPlaylists(userPlaylists.items || []);
@@ -43,10 +39,14 @@ export default function RemoveFromPlaylist() {
     if (!currentTrack) return;
     
     try {
-      const spotify = await getSpotifyClient();
-      await spotify.playlists.removeItemsFromPlaylist(playlistId, {
-        tracks: [{ uri: currentTrack.uri }]
-      });
+      // Ensure we have a valid token (refreshes or re-auths as needed)
+      await getSpotifyClient();
+      await spotifyFetch(
+        'DELETE',
+        `/playlists/${encodeURIComponent(playlistId)}/items`,
+        // February 2026 renamed the body field `tracks` -> `items`
+        { items: [{ uri: currentTrack.uri }] }
+      );
       
       await showToast({
         style: Toast.Style.Success,
@@ -70,7 +70,7 @@ export default function RemoveFromPlaylist() {
       
       {currentTrack && playlists.length === 0 && !isLoading && (
         <List.EmptyView
-          icon={Icon.List}
+          icon={Icon.AppWindowList}
           title="No Playlists Found"
           description="You don't have any playlists"
         />
