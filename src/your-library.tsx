@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, Keyboard } from '@vicinae/api';
+import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, useNavigation } from '@vicinae/api';
 import { getSpotifyClient, handleSpotifyError, safeApiCall, formatDuration, requireActiveDevice, spotifyFetch } from './utils/spotify';
 import type { Playlist, Track } from './types/spotify';
 import type { PlaylistItemsResponse } from './utils/spotify';
 
-function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () => void }) {
+function PlaylistDetail({ playlist }: { playlist: Playlist }) {
+  const { pop } = useNavigation();
   const [tracks, setTracks] = useState<Track[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchText, setSearchText] = useState('');
@@ -140,8 +141,7 @@ function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () =
                 <Action
                   title="Back to Playlists"
                   icon={Icon.ArrowLeft}
-                  onAction={onBack}
-                  shortcut={{ key: 'backspace', modifiers: [] }}
+                  onAction={pop}
                 />
                 <Action.CopyToClipboard
                   title="Copy Track URI"
@@ -183,7 +183,6 @@ async function setViewMode(mode: 'list' | 'grid') {
 export default function MyPlaylists() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [selectedPlaylist, setSelectedPlaylist] = useState<Playlist | null>(null);
   const [searchText, setSearchText] = useState('');
   const [viewMode, setViewModeState] = useState<'list' | 'grid'>(() => getViewMode());
 
@@ -248,18 +247,6 @@ export default function MyPlaylists() {
     }
   }
 
-  function handlePlaylistSelect(playlist: Playlist) {
-    setSearchText('');
-    setSelectedPlaylist(playlist);
-  }
-
-  if (selectedPlaylist) {
-    return <PlaylistDetail playlist={selectedPlaylist} onBack={() => {
-      setSearchText('');
-      setSelectedPlaylist(null);
-    }} />;
-  }
-
   const filteredPlaylists = playlists.filter(playlist =>
     playlist.name.toLowerCase().includes(searchText.toLowerCase())
   );
@@ -295,10 +282,10 @@ export default function MyPlaylists() {
               content={playlist.images?.[0]?.url || { source: Icon.Music, tintColor: '#1DB954' }}
               actions={
                 <ActionPanel>
-                  <Action
+                  <Action.Push
                     title="View Playlist"
                     icon={Icon.Eye}
-                    onAction={() => handlePlaylistSelect(playlist)}
+                    target={<PlaylistDetail playlist={playlist} />}
                   />
                   <Action
                     title="Play Playlist"
@@ -356,10 +343,10 @@ export default function MyPlaylists() {
             ]}
             actions={
               <ActionPanel>
-                <Action
+                <Action.Push
                   title="View Playlist"
                   icon={Icon.Eye}
-                  onAction={() => handlePlaylistSelect(playlist)}
+                  target={<PlaylistDetail playlist={playlist} />}
                 />
                 <Action
                   title="Play Playlist"

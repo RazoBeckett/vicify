@@ -123,7 +123,7 @@ ${track.album?.external_urls?.spotify ? `\n[Open Album in Spotify](${track.album
           <Detail.Metadata.Separator />
           <Detail.Metadata.Label title="Duration" text={trackDuration} />
           <Detail.Metadata.Label title="Popularity" text={popularity} />
-          {track.explicit && <Detail.Metadata.Label title="Explicit" text="Yes" icon={Icon.ExclamationMark} />}
+          {track.explicit && <Detail.Metadata.Label title="Explicit" text="Yes" icon={Icon.Exclamationmark} />}
           <Detail.Metadata.Separator />
           {playback?.device && (
             <>

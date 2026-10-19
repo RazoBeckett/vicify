@@ -7,7 +7,7 @@
 
 type ExtensionPreferences = {
   /** Spotify Client ID - Your Spotify app's Client ID (create at developer.spotify.com) */
-	"clientId"?: string;
+	"clientId": string;
 }
 
 declare type Preferences = ExtensionPreferences
@@ -263,7 +263,7 @@ declare namespace Arguments {
 	/** Command: Set Volume to */
 	export type VolumeSet = {
 		/** 0-100 */
-		"volume"?: string
+		"volume": string
 	}
 
 	/** Command: Turn Volume Down */

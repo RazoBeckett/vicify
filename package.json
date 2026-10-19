@@ -227,7 +227,7 @@
   "dependencies": {
     "@spotify/web-api-ts-sdk": "^1.2.0",
     "@types/react": "^19.2.8",
-    "@vicinae/api": "^0.16.14",
+    "@vicinae/api": "^0.29.1",
     "react": "^19.2.3"
   },
   "devDependencies": {

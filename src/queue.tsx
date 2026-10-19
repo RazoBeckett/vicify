@@ -97,7 +97,7 @@ export default function ViewQueue() {
       <List.Section title={`Up Next (${queue.length} tracks)`}>
         {queue.length === 0 && !isLoading && (
           <List.EmptyView
-            icon={Icon.List}
+            icon={Icon.AppWindowList}
             title="Queue is Empty"
             description="Add tracks to your queue to see them here"
           />

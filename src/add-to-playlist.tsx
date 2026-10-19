@@ -67,7 +67,7 @@ export default function AddToPlaylist() {
       
       {currentTrack && playlists.length === 0 && !isLoading && (
         <List.EmptyView
-          icon={Icon.List}
+          icon={Icon.AppWindowList}
           title="No Playlists Found"
           description="Create a playlist on Spotify first"
         />

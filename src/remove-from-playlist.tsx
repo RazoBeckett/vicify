@@ -70,7 +70,7 @@ export default function RemoveFromPlaylist() {
       
       {currentTrack && playlists.length === 0 && !isLoading && (
         <List.EmptyView
-          icon={Icon.List}
+          icon={Icon.AppWindowList}
           title="No Playlists Found"
           description="You don't have any playlists"
         />
