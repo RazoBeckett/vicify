@@ -3,7 +3,7 @@ import type { PlaybackState as SpotifyPlaybackState } from '@spotify/web-api-ts-
 import { getPreferenceValues, LocalStorage, showToast, Toast, open } from '@vicinae/api';
 import * as crypto from 'crypto';
 import * as http from 'http';
-import type { PlaybackState, Track, Device } from '../types/spotify';
+import type { PlaybackState, Track, Device, CurrentItem } from '../types/spotify';
 
 interface Preferences {
   clientId: string;
@@ -430,6 +430,18 @@ export function formatArtists(artists: Array<{ name: string }>): string {
 }
 
 /**
+ * Format a track popularity score as a markdown line.
+ * February 2026 removed `popularity` from Track responses, so the field can
+ * legitimately be absent and callers need a presentable fallback.
+ */
+export function formatPopularity(popularity: number | undefined): string {
+  if (typeof popularity !== 'number') {
+    return '**Popularity:** Not available';
+  }
+  return `**Popularity:** ${'⭐'.repeat(Math.round(popularity / 20))} (${popularity}/100)`;
+}
+
+/**
  * Retrieve cached access token from storage
  * @returns Cached access token string or null if not found
  */
@@ -516,6 +528,87 @@ export async function requireActiveDevice(spotify: SpotifyApi): Promise<SpotifyP
   return playbackState;
 }
 
+const API_BASE_URL = 'https://api.spotify.com/v1';
+
+/**
+ * Read the current access token, refreshing it first if it has expired.
+ * Used by the raw request helpers below.
+ */
+async function getFreshAccessToken(): Promise<string> {
+  const storedTokenJson = await LocalStorage.getItem<string>('spotify_token_data');
+  if (!storedTokenJson) {
+    throw new Error('No stored Spotify token');
+  }
+
+  const storedToken = JSON.parse(storedTokenJson) as StoredToken;
+  const EXPIRY_BUFFER = 5 * 60 * 1000;
+
+  if (storedToken.expires_at && storedToken.expires_at > Date.now() + EXPIRY_BUFFER) {
+    return storedToken.access_token;
+  }
+
+  if (!storedToken.refresh_token) {
+    throw new Error('Spotify token expired and cannot be refreshed');
+  }
+
+  const preferences = getPreferenceValues<Preferences>();
+  const newToken = await refreshAccessToken(storedToken.refresh_token, preferences.clientId);
+  await LocalStorage.setItem('spotify_token_data', JSON.stringify(newToken));
+  return newToken.access_token;
+}
+
+/**
+ * Issue a request against the Spotify Web API directly.
+ *
+ * @spotify/web-api-ts-sdk v1.2.0 (still the latest release) hardcodes the
+ * February 2026 route removals - it still calls `/playlists/{id}/tracks` and
+ * `/users/{id}/playlists`, both of which return 404 for Development Mode apps.
+ * These helpers reach the replacement routes until the SDK ships bindings.
+ *
+ * @param method - HTTP verb
+ * @param path - Path relative to https://api.spotify.com/v1, e.g. `/me/playlists`
+ * @param body - Optional JSON body
+ * @returns Parsed JSON response, or undefined for 204 No Content
+ */
+export async function spotifyFetch<T>(
+  method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+  path: string,
+  body?: unknown
+): Promise<T> {
+  const accessToken = await getFreshAccessToken();
+
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Spotify API ${response.status} on ${method} ${path}: ${errorText}`);
+  }
+
+  // 204 No Content has no body to parse
+  if (response.status === 204) {
+    return undefined as T;
+  }
+
+  return (await response.json()) as T;
+}
+
+/**
+ * Playlist item summary as returned by GET /playlists/{id}/items.
+ * February 2026 renamed `tracks` -> `items` and `track` -> `item`, but
+ * Extended Quota Mode apps still receive the old shape, so both are accepted.
+ */
+export interface PlaylistItemsResponse {
+  items?: Array<{ item?: Track; track?: Track }>;
+  total?: number;
+}
+
 /**
  * Execute a Spotify API call with safe error handling for 204 No Content responses
  * The SDK has a bug where it tries to parse empty responses as JSON
@@ -542,6 +635,8 @@ export async function safeApiCall<T>(apiCall: () => Promise<T>): Promise<T | voi
 
 /**
  * Get the currently playing track, returning null if nothing is playing
+ * Returns null for podcast episodes and ads, which have no `artists` field
+ * and would break the track-only helpers built on top of this.
  * @returns The current track or null if no track is playing
  */
 export async function getCurrentTrack(): Promise<Track | null> {
@@ -550,7 +645,18 @@ export async function getCurrentTrack(): Promise<Track | null> {
   if (!currentTrack || !currentTrack.item) {
     return null;
   }
-  return currentTrack.item as Track;
+
+  const item = currentTrack.item as CurrentItem;
+  if (item.type !== 'track') {
+    await showToast({
+      style: Toast.Style.Failure,
+      title: 'Not a Track',
+      message: 'Podcast episodes are not supported here',
+    });
+    return null;
+  }
+
+  return item as Track;
 }
 
 /**
@@ -577,13 +683,15 @@ export async function withCurrentTrack<T>(
 
 /**
  * Play a track by URI on the active device
+ * @returns true if playback was started, false if there is no active device
  */
-export async function playTrack(uri: string): Promise<void> {
+export async function playTrack(uri: string): Promise<boolean> {
   const spotify = await getSpotifyClient();
   const playbackState = await requireActiveDevice(spotify);
-  if (!playbackState) return;
+  if (!playbackState) return false;
   // @ts-expect-error SDK types don't properly handle optional device_id
   await safeApiCall(() => spotify.player.startResumePlayback(undefined, undefined, [uri]));
+  return true;
 }
 
 /**
@@ -615,10 +723,12 @@ export async function getPlaybackState() {
 /**
  * Set volume with active device check
  * @param volume - Volume level 0-100
+ * @returns true if the volume was applied, false if there is no active device
  */
-export async function setVolume(volume: number): Promise<void> {
+export async function setVolume(volume: number): Promise<boolean> {
   const spotify = await getSpotifyClient();
   const playbackState = await requireActiveDevice(spotify);
-  if (!playbackState) return;
+  if (!playbackState) return false;
   await safeApiCall(() => spotify.player.setPlaybackVolume(volume, undefined));
+  return true;
 }

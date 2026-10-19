@@ -128,7 +128,9 @@ export default function Devices() {
       const spotify = await getSpotifyClient();
       await safeApiCall(() => spotify.player.transferPlayback([deviceId], true));
 
-      saveLastDeviceName(deviceName);
+      if (!saveLastDeviceName(deviceName)) {
+        console.warn('[Vicify] Failed to persist last device name');
+      }
 
       await showToast({
         style: Toast.Style.Success,

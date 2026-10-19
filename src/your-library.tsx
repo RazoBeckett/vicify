@@ -1,11 +1,8 @@
 import { useState, useEffect } from 'react';
 import { List, Grid, ActionPanel, Action, Icon, showToast, Toast, Keyboard } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, safeApiCall, formatDuration, requireActiveDevice } from './utils/spotify';
+import { getSpotifyClient, handleSpotifyError, safeApiCall, formatDuration, requireActiveDevice, spotifyFetch } from './utils/spotify';
 import type { Playlist, Track } from './types/spotify';
-
-interface PlaylistTrack {
-  track: Track;
-}
+import type { PlaylistItemsResponse } from './utils/spotify';
 
 function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () => void }) {
   const [tracks, setTracks] = useState<Track[]>([]);
@@ -19,9 +16,19 @@ function PlaylistDetail({ playlist, onBack }: { playlist: Playlist; onBack: () =
   async function loadTracks() {
     try {
       setIsLoading(true);
-      const spotify = await getSpotifyClient();
-      const result = await spotify.playlists.getPlaylistItems(playlist.id);
-      setTracks(result.items.map((item: PlaylistTrack) => item.track));
+      const result = await spotifyFetch<PlaylistItemsResponse>(
+        'GET',
+        // /playlists/{id}/items caps limit at 50 per request
+        `/playlists/${encodeURIComponent(playlist.id)}/items?limit=50`
+      );
+
+      // February 2026 renamed `tracks` -> `items` and `track` -> `item`;
+      // Extended Quota Mode apps still get the old shape.
+      const tracks = (result.items ?? [])
+        .map((entry) => entry.item ?? entry.track)
+        .filter((track): track is Track => Boolean(track));
+
+      setTracks(tracks);
     } catch (error) {
       await handleSpotifyError(error, 'Failed to load tracks');
     } finally {
@@ -221,14 +228,14 @@ export default function MyPlaylists() {
 
   async function createNewPlaylist() {
     try {
-      const spotify = await getSpotifyClient();
-      const user = await spotify.currentUser.profile();
-      const newPlaylist = await spotify.playlists.createPlaylist(user.id, {
+      // February 2026 removed POST /users/{user_id}/playlists in favour of
+      // POST /me/playlists, which also drops the need to fetch the profile.
+      const newPlaylist = await spotifyFetch<Playlist>('POST', '/me/playlists', {
         name: `New Playlist ${new Date().toLocaleDateString()}`,
         description: 'Created from Vicinae',
         public: false,
       });
-      
+
       await showToast({
         style: Toast.Style.Success,
         title: 'Playlist Created',

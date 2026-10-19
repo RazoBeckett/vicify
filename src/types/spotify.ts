@@ -25,6 +25,7 @@ export interface Artist {
   name: string;
   uri: string;
   images?: Image[];
+  /** Removed from Artist responses in February 2026 for Development Mode apps */
   followers?: Followers;
   external_urls?: ExternalUrls;
 }
@@ -61,6 +62,7 @@ export interface Track {
   artists: Artist[];
   album: Album;
   duration_ms: number;
+  /** Removed from Track responses in February 2026 for Development Mode apps */
   popularity?: number;
   explicit?: boolean;
   external_urls?: ExternalUrls;
@@ -103,7 +105,29 @@ export interface Device {
   type: string;
   is_active: boolean;
   volume_percent: number | null;
+  is_restricted?: boolean;
+  supports_volume?: boolean;
 }
+
+/**
+ * Spotify Episode (podcast)
+ * Playback can return an episode instead of a track, and episodes have no
+ * `artists` field, so callers must narrow before reading track-only fields.
+ */
+export interface Episode {
+  id: string;
+  name: string;
+  uri: string;
+  type: string;
+  duration_ms: number;
+  images?: Image[];
+  external_urls?: ExternalUrls;
+}
+
+/**
+ * Whatever is currently playing: a track, a podcast episode, or nothing
+ */
+export type CurrentItem = Track | Episode;
 
 /**
  * Playback State object from getCurrentlyPlayingTrack or getPlaybackState
@@ -112,7 +136,7 @@ export interface PlaybackState {
   is_playing: boolean;
   progress_ms?: number;
   device?: Device;
-  item?: Track;
+  item?: CurrentItem;
   repeat_state: 'off' | 'track' | 'context';
   shuffle_state: boolean;
 }

@@ -38,6 +38,9 @@ function ensureConfigDirectory(): void {
 
     if (!fs.existsSync(configDir)) {
       fs.mkdirSync(configDir, { recursive: true, mode: 0o700 });
+    } else {
+      // mode only applies at creation time, so tighten an existing directory too
+      fs.chmodSync(configDir, 0o700);
     }
   } catch (error) {
     console.error('[Vicify] Failed to create config directory:', error);
@@ -87,6 +90,7 @@ function writeConfig(config: VicifyConfig): void {
 
 /**
  * Save last used device name
+ * @returns true if persisted, false if the write failed
  */
 export function saveLastDeviceName(deviceName: string): boolean {
   try {
@@ -108,7 +112,8 @@ export function getLastDeviceName(): string | null {
 }
 
 /**
- * Clear last used device name
+ * Forget the last used device name
+ * @returns true if cleared, false if the write failed
  */
 export function clearLastDeviceName(): boolean {
   try {

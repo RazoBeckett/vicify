@@ -1,15 +1,14 @@
 import { showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, requireActiveDevice, safeApiCall } from './utils/spotify';
-import type { Track } from './types/spotify';
+import { getSpotifyClient, handleSpotifyError, formatArtists, requireActiveDevice, safeApiCall, getCurrentTrack } from './utils/spotify';
 
 export default async function Command(): Promise<void> {
   try {
     const spotify = await getSpotifyClient();
     const playbackState = await requireActiveDevice(spotify);
     if (!playbackState) return;
-    const currentTrack = await spotify.player.getCurrentlyPlayingTrack();
-    
-    if (!currentTrack || !currentTrack.item) {
+
+    const trackItem = await getCurrentTrack();
+    if (!trackItem) {
       await showToast({
         style: Toast.Style.Failure,
         title: 'No Track Playing',
@@ -17,8 +16,7 @@ export default async function Command(): Promise<void> {
       });
       return;
     }
-    
-    const trackItem = currentTrack.item as Track;
+
     const trackId = trackItem.id;
     const trackUri = `spotify:track:${trackId}`;
     

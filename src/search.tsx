@@ -1,17 +1,33 @@
 import { useState } from 'react';
 import { List, ActionPanel, Action, Icon, showToast, Toast } from '@vicinae/api';
-import { getSpotifyClient, handleSpotifyError, formatArtists, requireActiveDevice, safeApiCall } from './utils/spotify';
-import type { Track, Artist, Album, Playlist, PlaylistTracks, Followers } from './types/spotify';
+import {
+  getSpotifyClient,
+  handleSpotifyError,
+  formatArtists,
+  requireActiveDevice,
+  safeApiCall,
+  playTrack as playTrackByUri,
+} from './utils/spotify';
+import type { Track, Artist, Album, Playlist, Image } from './types/spotify';
 
 type SearchResult = Track | Artist | Album | Playlist;
 type SearchType = 'track' | 'artist' | 'album' | 'playlist';
 
+const SEARCH_TYPES: readonly string[] = ['track', 'artist', 'album', 'playlist'];
+
+function isSearchType(value: string): value is SearchType {
+  return SEARCH_TYPES.includes(value);
+}
+
 const MAX_SEARCH_QUERY_LENGTH = 200;
 const MIN_SEARCH_QUERY_LENGTH = 2;
+// February 2026 lowered the /search `limit` maximum from 50 to 10
+const SEARCH_RESULT_LIMIT = 10;
 
 /**
- * Sanitize search query by removing potentially dangerous characters
- * and limiting length
+ * Normalize a raw search box value before it reaches the Spotify API.
+ * Search results are never rendered as raw HTML, so this is input hygiene
+ * rather than HTML escaping: strip angle brackets and quotes, then cap length.
  */
 function sanitizeSearchQuery(query: string): string {
   return query
@@ -28,10 +44,10 @@ export default function SearchSpotify() {
 
   async function performSearch(query: string): Promise<void> {
     const sanitizedQuery = sanitizeSearchQuery(query);
-    
-    if (!sanitizedQuery || sanitizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
+    setSearchText(sanitizedQuery);
+
+    if (sanitizedQuery.length < MIN_SEARCH_QUERY_LENGTH) {
       setSearchResults([]);
-      setSearchText(sanitizedQuery);
       return;
     }
 
@@ -39,7 +55,7 @@ export default function SearchSpotify() {
       setIsLoading(true);
       const spotify = await getSpotifyClient();
       
-      const results = await spotify.search(sanitizedQuery, [searchType]);
+      const results = await spotify.search(sanitizedQuery, [searchType], undefined, SEARCH_RESULT_LIMIT);
       
       let items: SearchResult[] = [];
       switch (searchType) {
@@ -67,10 +83,8 @@ export default function SearchSpotify() {
 
   async function playTrack(uri: string) {
     try {
-      const spotify = await getSpotifyClient();
-      const playbackState = await requireActiveDevice(spotify);
-      if (!playbackState) return;
-      await safeApiCall(() => spotify.player.startResumePlayback(undefined as any, undefined, [uri]));
+      const started = await playTrackByUri(uri);
+      if (!started) return;
       await showToast({
         style: Toast.Style.Success,
         title: 'Playing Track',
@@ -97,34 +111,38 @@ export default function SearchSpotify() {
   }
 
   function getItemTitle(item: SearchResult): string {
-    return 'name' in item ? item.name : 'Unknown';
+    return item.name;
   }
 
   function getItemSubtitle(item: SearchResult): string {
-    if (searchType === 'track' || searchType === 'album') {
-      const hasArtists = 'artists' in item && Array.isArray(item.artists);
-      return hasArtists ? formatArtists(item.artists as Artist[]) : '';
+    if ('artists' in item) {
+      return formatArtists(item.artists);
     }
-    if (searchType === 'playlist') {
-      const hasTracks = 'tracks' in item && item.tracks !== null;
-      return hasTracks ? `${(item.tracks as PlaylistTracks).total} tracks` : '0 tracks';
+    if ('tracks' in item) {
+      return item.tracks ? `${item.tracks.total} tracks` : '0 tracks';
     }
-    if (searchType === 'artist') {
-      const hasFollowers = 'followers' in item;
-      return hasFollowers ? `${(item.followers as Followers).total} followers` : '';
+    if ('followers' in item && item.followers) {
+      return `${item.followers.total} followers`;
     }
     return '';
   }
 
-  function getItemIcon(item: SearchResult): string {
-    if (searchType === 'artist') {
-      const artist = item as unknown as { images?: { url: string }[] };
-      return artist.images?.[0]?.url || Icon.Music;
+  /**
+   * Artists, albums and playlists carry images directly; tracks carry them on
+   * their album. Narrowing on the property keeps this free of casts.
+   */
+  function getItemImages(item: SearchResult): Image[] {
+    if ('images' in item && Array.isArray(item.images)) {
+      return item.images;
     }
-    const directImages = 'images' in item ? (item as Album | Playlist).images : undefined;
-    const albumImages = 'album' in item && item.album && 'images' in item.album ? item.album.images : undefined;
-    const images = directImages || albumImages || [];
-    return images[0]?.url || Icon.Music;
+    if ('album' in item && item.album && Array.isArray(item.album.images)) {
+      return item.album.images;
+    }
+    return [];
+  }
+
+  function getItemIcon(item: SearchResult): string {
+    return getItemImages(item)[0]?.url || Icon.Music;
   }
 
   return (
@@ -136,7 +154,8 @@ export default function SearchSpotify() {
          <List.Dropdown
            tooltip="Search Type"
            onChange={(newValue) => {
-             setSearchType(newValue as SearchType);
+             if (!isSearchType(newValue)) return;
+             setSearchType(newValue);
              performSearch(searchText);
            }}
         >
@@ -164,8 +183,8 @@ export default function SearchSpotify() {
       )}
 
       {searchResults.map((item) => {
-        const itemKey = 'id' in item ? item.id : `artist-${item.name}`;
-        const itemUri = 'uri' in item ? item.uri : '';
+        const itemKey = item.id;
+        const itemUri = item.uri;
         return (
         <List.Item
           key={itemKey}
